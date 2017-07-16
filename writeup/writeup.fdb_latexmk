@@ -1,5 +1,5 @@
 # Fdb version 3
-["pdflatex"] 1500244729 "writeup.tex" "writeup.pdf" "writeup" 1500244730
+["pdflatex"] 1500245842 "writeup.tex" "writeup.pdf" "writeup" 1500245843
   "../camera_cal/calibration5.jpg" 1497390995 137529 3a57112ef334c3e82f6ec3267ec8efc1 ""
   "../output_images/calibrate.jpg" 1500227815 158230 e23c2577f6f0cfee25845e5a3e0c7521 ""
   "../output_images/centroids.jpg" 1500224972 92614 4168c9dd89c98dbd340fcc60ad0e2337 ""
@@ -150,11 +150,11 @@
   "/usr/share/texmf-dist/web2c/texmf.cnf" 1492575665 31661 3832dc67fcae1bb0c47594ea86c25797 ""
   "/var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map" 1497111189 2220423 fef69922126604e2c6136500ed3e2ad4 ""
   "/var/lib/texmf/web2c/pdftex/pdflatex.fmt" 1497111161 7587051 6567dec0283b31602385105e1ca277d0 ""
-  "writeup.aux" 1500244730 4139 01dd7946f8a30dc7ba754065433e1728 ""
-  "writeup.out" 1500244730 2124 cc2777848b681ddc86ce2b1556db1504 ""
-  "writeup.tex" 1500244728 10510 819916c3039d0691e24d8f7976212f60 ""
+  "writeup.aux" 1500245843 4139 01dd7946f8a30dc7ba754065433e1728 ""
+  "writeup.out" 1500245843 2124 cc2777848b681ddc86ce2b1556db1504 ""
+  "writeup.tex" 1500245708 10509 cc13656ec1ca8243880ce39a60de2e86 ""
   (generated)
-  "writeup.aux"
-  "writeup.log"
-  "writeup.pdf"
   "writeup.out"
+  "writeup.log"
+  "writeup.aux"
+  "writeup.pdf"

@@ -136,9 +136,9 @@ The x-values for the replacement curve were computed with a power series:
 $$
 x_{saved}(t) = (1/3) \sum_{i} (2/3)^{i-1}x(t-i) 
 $$
-
+%
 and stored in the \emph{saved\_line} class instance.
-The coefficients in this series were chosen quite arbitrarily, but seem to have a nice smoothening effect on the video.
+The coefficients in this series were chosen quite arbitrarily, but seem to have a nice smoothing effect on the video.
 
 \begin{figure}[h]
   \begin{center}
@@ -172,7 +172,7 @@ $$
  \text{displacement} = (\text{image\_width} - C_{left} - C_{right})/2.
 $$
 
-In this computations, I assume I am at the bottom of the image, which in my pipeline corresponds to $Y=0$
+In these computations I assume I am at the bottom of the image, which in my pipeline corresponds to $Y=0$
 (as contrary to $Y=Y_{max}$ in the example pipeline).
 Values above zero indicate that the car is on the right side of the lane, below zero, that it is left of the center.
 
