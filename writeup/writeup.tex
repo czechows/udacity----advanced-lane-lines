@@ -11,252 +11,214 @@
 \pagestyle{empty}
 \noindent
 
-\title{Udacity CarND Behavioral Cloning project}
+\title{Udacity CarND Advanced Lane Finding project}
 \author{Aleksander Czechowski}
 \maketitle
 
-The purpose of this project was to train an algorithm to drive a car in a simulator,
-based on recordings of human-performed driving in this simulator.
-My algorithm is based on a convolutional neural network,
-which matches the input from vehicle's camera with the correct steering angles.
-The main goal of the project was to make the car drive one lap in autonomous mode, without leaving the road.
-The objective was achieved, as documented in the video SELF\_DRIVING\_REV1.mp4.
+The purpose of this project was to implement an advanced lane finding algorithm,
+that would take into account the curvature of the lane (as opposed to fitting straight lines in one of the previous projects).
+The main goal of the project was to reliably detect the lanes in the video project\_video.mp4.
+The objective was achieved, as documented in the video output.mp4.
+All the relevant code is contained in the notebook ALF.ipynb.
 
 \section{Rubric points}
 
-\subsection{Submission includes all required files and can be used to run the simulator in autonomous mode}
+\subsection{Camera calibration}
 
-My project includes the following files:
+\subsubsection{Briefly state how you computed the camera matrix and distortion coefficients. Provide an example of a distortion corrected calibration image.}
 
+
+The code for this step is contained in the functions \emph{camera\_calib} and \emph{undistort}.
+In the function \emph{camera\_calib} I first generate the ``object points'', which represent the 3D points of the chessboard from real world space,
+and were artificially generated (just assuming that the chessboard is placed in front of the camera at z=0).
+Then, I use the method \emph{cv2.findChessboardCorners} to find the image points of chessboard corners for
+the calibration images in the \emph{camera\_cal} directory.
+The function \emph{cv2.cameraCalibration} was called to extract the parameters to calibrate the camera based on the collected input
+from images, where all the chessboard corners were found successfully.
+
+Based on the collected parameters, the function \emph{cv2.undistort} was used to undistort the images taken by camera.
+
+\begin{figure}[h]
+  \begin{center}
+    \includegraphics[width=40mm]{../camera_cal/calibration5.jpg}
+    \quad
+    \includegraphics[width=40mm]{../output_images/calibrate.jpg}
+  \caption{A chessboard photo, before undistortion (left) and after (right).}
+\end{center}
+\end{figure}
+
+\subsection{Pipeline}
+
+Below, I summarize my pipeline, which is executed in the function \emph{process\_image}.
+
+\subsubsection{Provide an example of a distortion-corrected image.}
+
+A distortion-free image from the road is provided below:
+
+\begin{figure}[h]
+  \begin{center}
+    \includegraphics[width=40mm]{../test_images/test1.jpg}
+    \quad
+    \includegraphics[width=40mm]{../output_images/undistorted.jpg}
+  \caption{A road photo, before undistortion (left) and after (right).}
+\end{center}
+\end{figure}
+
+\subsubsection{Describe how (and identify where in your code) you used color transforms, gradients or other methods to create a thresholded binary image. 
+Provide an example of a binary image result.}
+
+After undistorting, I used a combination of color and gradient thresholds. The thresholding is performed in the master function \emph{combine\_threshold},
+which calls each of the subfunctions that perform the thresholding, and overlays the resulting binary output on a single image.
+
+Namely, I used the following thresholds:
+%
 \begin{itemize}
-  \item clone.py, which is a Python3 script that trains the neural network;
-  \item model.h5, containing the trained network, that can drive the track;
-  \item drive.py, which is the script that drives the car in autonomous mode;
-  \item writeup.pdf, which is the project documentation you are reading now;
-  \item a video file SELF\_DRIVING\_REV1.mp4, serving as a proof that the car can drive one loop using the network.
+  \item Canny edge detection (function \emph{Canny\_threshold}) with $\emph{minVal}=50$ and  $\emph{maxVal}=150$;
+  \item a color threshold based on the S channel in the HLS color space (function \emph{hls\_threshold}), activation for $S \in [70,255]$;
+  \item a Sobel threshold, both in $x$ and $y$ directions (functions \emph{abs\_sobel\_thresh} and \emph{combine\_Sobel}), with range $[10,255]$ and $kernel=3$
+    for both. The Sobel thresholds are taken in conjunction, i.e. only the pixels selected in both directions contribute to the final binary output.
 \end{itemize}
- 
-I used Python 3.6.1 and Keras 1.2.1.
 
-\subsection{Submission includes functional code}
-
-To drive the car in autonomous mode using my simulator,
-run the \href{https://d17h27t6h515a5.cloudfront.net/topher/2017/February/58ae46bb_linux-sim/linux-sim.zip}{simulator} (Linux version)
-and execute
-
-\begin{center}
-python drive.py model.h5
-\end{center}
-
-\subsection{Submission code is usable and readable}
-
-The file clone.py contains the pipeline I used for creating 
-The code is quite short, commented and self-documenting.
-
-The source roughly consists of four short parts: image preprocessing, the data generator configuration, the model architecture,
-and two lines of code which fit the model and save it.
-
-\section{Model Architecture and Training Strategy}
-
-
-\subsection{An appropriate model architecture has been employed}
-\def\layersep{1.6cm}
-
-Below is a \underline{schematic} drawing of the network architecture:
-
-\begin{figure}[h]
-
-  \begin{tikzpicture}[shorten >=1pt,->,draw=black!50, node distance=\layersep]
-      \tikzstyle{every pin edge}=[<-,shorten <=1pt]
-      \tikzstyle{neuron}=[circle,fill=black!25,minimum size=17pt,inner sep=0pt]
-      \tikzstyle{input neuron}=[neuron];
-      \tikzstyle{output neuron}=[neuron];
-      \tikzstyle{hidden neuron}=[neuron];
-      \tikzstyle{annot} = [text width=4em, text centered]
-
-      % Draw the input layer nodes
-      \foreach \name / \y in {1,...,6}
-      % This is the same as writing \foreach \name / \y in {1/1,2/2,3/3,4/4}
-          \node[input neuron] (I-\name) at (0,-\y) {};
-
-      % Draw the conv layer nodes
-      \foreach \name / \y in {1,...,6}
-          \path[yshift=0.0cm]
-              node[hidden neuron] (H-\name) at (\layersep,-\y cm) {};
-
-      % Draw the max layer nodes
-      \foreach \name / \y in {1,...,3}
-          \path[yshift=-1.0cm]
-              node[hidden neuron] (M-\name) at (3*\layersep,-\y cm) {};
-
-      % Draw the dropout layer nodes
-      \foreach \name / \y in {1,2}
-          \path[yshift=-1.0cm]
-              node[hidden neuron] (D-\name) at (4*\layersep,-\y cm) {};
- 
-      % Draw the Fully connected layer nodes
-      \foreach \name / \y in {1,2}
-          \path[yshift=-1.0cm]
-              node[hidden neuron] (F-\name) at (5*\layersep,-\y cm) {};             
-
-      % Draw the dropout2 connected layer nodes
-      \foreach \name / \y in {1}
-          \path[yshift=-1.0cm]
-              node[hidden neuron] (DD-\name) at (6*\layersep,-\y cm) {};   
-
-      % Draw the FF2 nodes
-      \foreach \name / \y in {1}
-          \path[yshift=-1.0cm]
-              node[hidden neuron] (FF-\name) at (7*\layersep,-\y cm) {};   
-
-      \foreach \source in {1,...,6}
-              \path (I-\source) edge (H-\source);
-
-      \foreach \source in {1,2}
-         \foreach \dest in {1}
-             \path (H-\source) edge (M-\dest);
-      \foreach \source in {3,4}
-         \foreach \dest in {2}
-             \path (H-\source) edge (M-\dest);
-      \foreach \source in {5,6}
-         \foreach \dest in {3}
-             \path (H-\source) edge (M-\dest);
-
-      \foreach \source in {1,2}
-         \foreach \dest in {1}
-             \path (M-\source) edge (D-\dest);
-      \foreach \source in {3}
-         \foreach \dest in {2}
-             \path (M-\source) edge (D-\dest);
-
-      \foreach \source in {1,2}
-        \foreach \dest in {1,2}
-          \path (D-\source) edge (F-\dest);
-
-      \foreach \source in {1,2}
-        \foreach \dest in {1,2}
-          \path (D-\source) edge (F-\dest);
-
-      \foreach \source in {1,2}
-        \foreach \dest in {1}
-          \path (F-\source) edge (DD-\dest);
-
-      \foreach \source in {1}
-        \foreach \dest in {1}
-          \path (DD-\source) edge (FF-\dest);
-
-      % Annotate the 
- 
-          \node[annot,left of=I-4] {Prepro-\\ cessing: downsizing from 160x320x3 to 80x160x3, cropping to 40x160x3, normalizing from [0,255] to [-0.5,0.5]};
-      \node[annot,above of=H-1, node distance=2cm] (h) {Conv. layer 16x1x1 outputs 40x160x16 tensors};
-      \node[annot,left of=h] (hh) {Input layer 40x160x3 tensor};
-      \node[annot,right of=h] (hl) {RELU};
-      \node[annot,right of=hl] (hll) {Maxpool 2x2 outputs 20x80x16 tensor};
-      \node[annot,right of=hll] (hlll) {Dropout keep\_prob =0.5};
-      \node[annot,right of=hlll] (hllll) {Fully connected outputs flattened 16-dim vector};
-      \node[annot,right of=hllll] (hlllll) {Dropout keep\_prob =0.7};
-      \node[annot,right of=hlllll] (hllllll) {Fully connected outputs the value of steering};
-
-  \end{tikzpicture}
- 
-\end{figure}
-
-\subsection{Attempts to reduce overfitting in the model}
-
-The model is relatively compact, so it does not overfit much in the first place.
-However, two dropout layers and a maxpooling layer are in place to reduce overfitting.
-In addition, during data collection the car drove the track in both directions (additional data).
-
-\subsection{Model parameter tuning}
-
-The model uses an adam optimizer with self-adapting learning rate.
-
-\subsection{Appropriate training data}
-
-The training data was collected in order for the model to learn most efficiently.
-Therefore, rather than driving smoothly, which would result in a lot of 0 driving angles, 
-I tried to perform many slight adjustments of the driving angles, and ``bounce'' off the edges of the road.
-This allowed the network to learn recovery maneuvers.
-For more details, see Subsection~\ref{CTT}.
-
-\section{Model Architecture and Training Strategy}
-
-\subsection{Solution Design Approach}
-
-Initially I tried more advanced architectures (VGG, NVIDIA SDC), 
-but regardless of the preprocessing, filtering (eliminating constant steering data), and regularization steps,
-it would stop learning early and yield constant steering angles. Perhaps there were too many RELUs in these networks,
-and they would stop learning (see \href{https://medium.com/@karpathy/yes-you-should-understand-backprop-e2f06eab496b}{Karpathy's blog, section 'dying RELU's}).
-I did not find time to debug these networks at a low level. 
-It is certainly worth to have a look at that problem in the future.
-
-I performed three preprocessing steps.
-First one was resizing the images, effectively reducing their resolution in half, which decreased the memory requirements for the model.
-Then, I normalized the input data to have mean=0 and sigma=1, which is a standard step and allows for faster learning and easier debugging.
-
-REVISION: in drive.py I needed to convert RGB to BGR and resize the input, the other preprocessing steps were performed in the model (normalization using lambdas).
-In addition, I increased the speed of the car.
-
-Finally, I cropped 25 pixels from the top and 15 pixels from the bottom, already at the model architecture level.
-The reason for cropping was that only the mid-part of the front-camera images contained relevant information on the road curvature.
-
-\subsection{Final model architecture}
-
-The final architecture was taken from a 'weird lame' model constructed by Cipher,
-which I found while exploring \href{https://discussions.udacity.com/t/steering-stuck-hard-right/226720/24}{one of the discussions on Udacity board}.
-
-I tried to improve Cipher's network, but it seems to be already highly optimized and performs really well at the task.
-In the end, I obtained the best results by leaving it intact.
-
-\subsection{Creation of the Training Set \& Training Process}\label{CTT}
-
-The training data consists of 9095 images taken from the center camera.
-It was not necessary to use side cameras to emulate recovery driving.
-The car was being driven in both clockwise and counterclockwise directions along the track.
-
-I tried to drive the car in a manner that would put it frequently in recovery-type situations:
+I also implemented magnitude and direction thresholds (functions \emph{mag\_thresh}, \emph{dir\_threshold} and \emph{combine\_MagDir}),
+but ultimately they were not included in the pipeline, as they did not bring any significant improvement.
+Regardless, I will keep the implementation for future.
 
 \begin{figure}[h]
   \begin{center}
-  \includegraphics[width=80mm]{recovery.jpg}
-  \caption{Recovery training.}
+    \includegraphics[width=40mm]{../output_images/undistorted.jpg}
+    \quad
+    \includegraphics[width=40mm]{../output_images/thresholded.jpg}
+  \caption{The image before (left) and after (right) the thresholding operations.}
 \end{center}
 \end{figure}
 
-During evaluation in the simulator, the vehicle still had problems falling into water before and during the bridge. Therefore, additional data had to be collected for driving
-before, and on the bridge:
+
+\subsubsection{Describe how (and identify where in your code) you performed a perspective transform and provide an example of a transformed image.}
+
+The perspective transform was performed in two steps.
+First, one of the straight lines images was used to identify four corner points to define the transform,
+which were in turn used to compute the perspective transform matrix
+(the function \emph{get\_perspective\_transform}, using \emph{cv2.getPerspectiveTransform}).
+
+The second step was to apply the matrix $M$ obtained from \emph{cv2.getPerspectiveTransform} to the processed image.
 
 \begin{figure}[h]
   \begin{center}
-\includegraphics[width=80mm]{bridge.jpg}
-\caption{Additional data was needed to complete the turn before the bridge.}
+    \includegraphics[width=40mm]{../output_images/thresholded.jpg}
+    \quad
+    \includegraphics[width=40mm]{../output_images/warped.jpg}
+  \caption{The image before (left) and after (right) the perspective transform.}
 \end{center}
 \end{figure}
 
-Finally, I drove an extra lap with no recovery situations, to smoothen out the driving behavior.
+\subsubsection{Describe how (and identify where in your code) you identified lane-line pixels and fit their positions with a polynomial?}
 
-REVISION: After the project revision I had to implement several bugfixes, 
-this remedied the problem of car touching the ledge at second 37, and in general the car drives smoother.
+In order to identify lane-line pixels, I performed the procedure of finding window centroids, as described in details in the course.
+To give a rough overview, the image is divided into 9 horizontal layers. Within each layer, a window search is performed,
+by convolving the binary image from the previous step, with a sliding window. 
+The position, where the window yielded highest activation is selected,
+and the center of each such window is later used to fit the polynomial (function \emph{find\_window\_centroids}).
 
-However, two additional problematic situations were created, the car would drive off the track at both of the sharp turns, after the bridge.
-Therefore, I collected additional data to teach the car to perform recovery at these points.
-The car now still drives close to the edge, but performs recovery maneuvers. I believe the car did not leave the drivable portion of the road, cf. Figure below.
+Each (left/right) set of window centroids has been interpolated as a function of $Y$ (so rotated 90 degrees), with a polynomial of the form:
+%
+$$
+ X = AY^2 + BY + C
+$$
+
+Simple reality checks were performed to stabilize the interpolation for the video (function \emph{reality\_checks}).
+It is expected, that the polynomial curves will vary continuously from frame to frame,
+so if the difference between the current and the previous curve (in $L^2$ norm) would exceed a given threshold,
+then a replacement curve (based on previous frames) was substituted.
+
+The thresholds were set to 600 for the left lane line and 200 for the right lane line.
+The x-values for the replacement curve were computed with a power series:
+
+$$
+x_{saved}(t) = (1/3) \sum_{i} (2/3)^{i-1}x(t-i) 
+$$
+
+and stored in the \emph{saved\_line} class instance.
+The coefficients in this series were chosen quite arbitrarily, but seem to have a nice smoothening effect on the video.
 
 \begin{figure}[h]
   \begin{center}
-\includegraphics[width=40mm]{close1.jpg}\quad
-\includegraphics[width=40mm]{close2.jpg}
-\caption{Two problematic situations, but the vehicle recovers.}
+    \includegraphics[width=40mm]{../output_images/centroids.jpg}
+    \quad
+    \includegraphics[width=40mm]{../output_images/line_image.jpg}
+  \caption{The top activation windows (left), and their spline interpolation (right).}
 \end{center}
 \end{figure}
 
-The model was trained for 25 epochs, with batches of 20 images, using keras ImageDataGenerator, adam optimizer and the mean squared error as the loss function
-(since we are dealing with continuous range of the variable to predict).
-I chose to use a fixed set of data for validation (also fed using an image generator), 
-as I wanted to make sure that all the training data I collected for troubleshooting was being used.
-For validation, the vehicle drove both clockwise and counterclockwise around the track (similar as for training).
 
-In the last epochs the training error oscillated around 0.1 with validation error $\approx 0.09$, so the model did not overfit.
-The validation error was lower, as dropout probabilities are set to 0 during validation evaluation in Keras (at least that is what I think).
+
+\subsubsection{Describe how (and identify where in your code) you calculated the radius of curvature of the lane and the position of the vehicle with respect to center.}
+
+The curvature and the respective position was calculated in the function \emph{curvature\_and\_offset}.
+
+The curves are second order polynomials, so the radius of curvature can be computed from the formula 
+%
+$$
+  R_{curve} = \frac{(1+(2AY+B)^2)^{3/2}}{|2A|}.
+$$
+%
+Then, I averaged from the values of the left and the right lane line.
+
+
+To compute the displacement, I assumed that the camera is mounted in the middle of the car.
+Then, the formula the displacement is simple, since in a centered position the left and the right line needs to be equidistant from the center,
+and sum up to the width of the image:
+%
+$$
+ \text{displacement} = (\text{image\_width} - C_{left} - C_{right})/2.
+$$
+
+In this computations, I assume I am at the bottom of the image, which in my pipeline corresponds to $Y=0$
+(as contrary to $Y=Y_{max}$ in the example pipeline).
+Values above zero indicate that the car is on the right side of the lane, below zero, that it is left of the center.
+
+The calculations were performed in meters, and I assumed that each pixel consists of 60/720 meters in the y direction and 3.7/700 meters in the x direction.
+In the y direction I have about twice as many meters per pixel, as recommended in the course, but this is because I choose my perspective transform
+in such a way, that the lines are more squeezed in the vertical direction.
+The curvature and displacement values were displayed in the upper left corner of the processed images and of the video.
+
+
+
+\subsubsection{ Provide an example image of your result plotted back down onto the road such that the lane area is identified clearly.}
+
+Outputs of all provided test images are displayed below:
+
+\begin{figure}[h]
+  \begin{center}
+    \includegraphics[width=40mm]{../output_images/test1_processed.jpg}
+    \quad
+    \includegraphics[width=40mm]{../output_images/test2_processed.jpg}
+    \quad
+   \includegraphics[width=40mm]{../output_images/test3_processed.jpg}
+   \quad
+   \includegraphics[width=40mm]{../output_images/test4_processed.jpg}
+   \quad
+   \includegraphics[width=40mm]{../output_images/test5_processed.jpg}
+   \quad
+   \includegraphics[width=40mm]{../output_images/test6_processed.jpg}
+  \caption{Lane area is displayed in green.}
+\end{center}
+\end{figure}
+
+\subsection{Pipeline (video)}
+
+\subsubsection{Provide a link to your final video output. Your pipeline should perform reasonably well on the entire project video 
+(wobbly lines are ok but no catastrophic failures that would cause the car to drive off the road!)}
+
+Here is a link to the \href{https://github.com/czechows/udacity----advanced-lane-lines/blob/master/output.mp4}{\textbf{output video}}.
+
+\subsection{Discussion}
+
+\subsubsection{Briefly discuss any problems / issues you faced in your implementation of this project. Where will your pipeline likely fail? What could you do to make it more robust?}
+
+The pipeline does not really perform well on the challenge videos.
+A more structured approach to backtracing history and reality checks could have been taken (which would incorporate e.g. confidence in the result),
+but given time constraints only a limited version of these was implemented.
+
+Also, some variables could have been precomputed outside of the pipeline, which would have accelerated video processing.
 
 \end{document}
